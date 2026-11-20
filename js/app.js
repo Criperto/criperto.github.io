@@ -38,8 +38,17 @@
     h.textContent = repo.name;
     var desc = document.createElement('p');
     desc.className = 'repo-desc';
-    desc.textContent = CP.describe(repo);
-    CP.onLang(function () { desc.textContent = CP.describe(repo); });
+    var descSeq = 0;
+    function paintDesc() {
+      var seq = ++descSeq;
+      desc.textContent = CP.describe(repo);
+      if (CP.lang() !== 'en') return;
+      CP.translateDescription(repo).then(function (text) {
+        if (seq === descSeq && CP.lang() === 'en') desc.textContent = text;
+      });
+    }
+    paintDesc();
+    CP.onLang(paintDesc);
 
     var dl = document.createElement('dl');
     dl.className = 'meta';

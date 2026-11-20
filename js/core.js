@@ -8,6 +8,9 @@
   var PROFILE_KEY = 'criperto.profile.v1';
   var CACHE_MS = 60 * 60 * 1000;
   var LANG_KEY = 'criperto.lang';
+  var TR_KEY = 'criperto.tr.v1';
+  var TR_API = 'https://api.mymemory.translated.net/get';
+  var TR_MAX = 450;
   var EXCLUDE = ['criperto', 'criperto.github.io'];
 
   var STRINGS = {
@@ -133,6 +136,128 @@
     return new Intl.DateTimeFormat(LOCALE[lang], { year: 'numeric', month: 'short', day: 'numeric' }).format(d);
   }
 
+  /* ---------- traducción automática (ES→EN con MyMemory) ---------- */
+
+  var trCache = (function () {
+    try {
+      var raw = JSON.parse(localStorage.getItem(TR_KEY) || '{}');
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
+    } catch (e) { /* cache roto */ }
+    return {};
+  })();
+
+  function trHash(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) | 0;
+    return 'h' + (h >>> 0).toString(36);
+  }
+
+  function trKey(text) { return 'es|en|' + text; }
+
+  function saveTrCache() {
+    try {
+      var keys = Object.keys(trCache);
+      if (keys.length > 200) {
+        keys.slice(0, keys.length - 200).forEach(function (k) { delete trCache[k]; });
+      }
+      localStorage.setItem(TR_KEY, JSON.stringify(trCache));
+    } catch (e) { /* storage lleno o bloqueado */ }
+  }
+
+  function utf8Size(s) {
+    if (typeof TextEncoder === 'function') return new TextEncoder().encode(s).length;
+    return encodeURIComponent(s).replace(/%[0-9A-F]{2}/gi, 'x').length;
+  }
+
+  /* MyMemory acepta como máximo 500 bytes por pedido: partimos por palabras. */
+  function chunkText(text, max) {
+    if (utf8Size(text) <= max) return [text];
+    var words = text.split(/\s+/);
+    var chunks = [];
+    var cur = '';
+    words.forEach(function (w) {
+      var next = cur ? cur + ' ' + w : w;
+      if (cur && utf8Size(next) > max) { chunks.push(cur); cur = w; }
+      else cur = next;
+    });
+    if (cur) chunks.push(cur);
+    return chunks;
+  }
+
+  var trQueue = [];
+  var trActive = 0;
+  var TR_PARALLEL = 2;
+
+  function trEnqueue(fn) {
+    return new Promise(function (resolve, reject) {
+      trQueue.push({ fn: fn, resolve: resolve, reject: reject });
+      trPump();
+    });
+  }
+
+  function trPump() {
+    while (trActive < TR_PARALLEL && trQueue.length) {
+      (function (job) {
+        trActive++;
+        Promise.resolve().then(job.fn).then(function (value) {
+          trActive--;
+          job.resolve(value);
+          trPump();
+        }, function (err) {
+          trActive--;
+          job.reject(err);
+          trPump();
+        });
+      })(trQueue.shift());
+    }
+  }
+
+  function fetchTranslation(chunk) {
+    var params = new URLSearchParams({ q: chunk, langpair: 'es|en' });
+    return fetch(TR_API + '?' + params.toString())
+      .then(function (r) {
+        if (!r.ok) throw new Error('http ' + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d || d.quotaFinished || Number(d.responseStatus) !== 200) throw new Error('api');
+        var tr = d.responseData && d.responseData.translatedText;
+        if (typeof tr !== 'string' || !tr.trim() || /MYMEMORY WARNING/i.test(tr)) throw new Error('empty');
+        return tr;
+      });
+  }
+
+  /* Traduce un texto al inglés. Nunca rechaza: si falla, devuelve el original. */
+  function translate(text) {
+    if (lang !== 'en' || !text) return Promise.resolve(text);
+    var fullKey = trHash(trKey(text));
+    if (typeof trCache[fullKey] === 'string') return Promise.resolve(trCache[fullKey]);
+    var chunks = chunkText(text, TR_MAX);
+    return trEnqueue(function () {
+      var out = [];
+      function step(i) {
+        if (i >= chunks.length) return out;
+        var chunk = chunks[i];
+        var key = trHash(trKey(chunk));
+        if (typeof trCache[key] === 'string') {
+          out.push(trCache[key]);
+          return step(i + 1);
+        }
+        return fetchTranslation(chunk).then(function (tr) {
+          trCache[key] = tr;
+          out.push(tr);
+          return step(i + 1);
+        });
+      }
+      return Promise.resolve().then(function () { return step(0); }).then(function (parts) {
+        var full = parts.join(' ');
+        trCache[fullKey] = full;
+        saveTrCache();
+        return full;
+      });
+    }).catch(function () { return text; });
+  }
+
   /* ---------- datos ---------- */
 
   function isHttps(u) { return typeof u === 'string' && /^https:\/\//i.test(u); }
@@ -237,11 +362,26 @@
       });
   }
 
-  /* Descripción en el idioma activo: override manual si existe, si no la de GitHub. */
-  function describe(repo) {
+  /* Override manual solo si el texto `es` coincide con la descripción actual de GitHub. */
+  function manualText(repo) {
     var o = overrides[repo.name];
-    if (o && o[lang]) return o[lang];
-    return repo.description || t('repo.nodesc');
+    if (!o) return '';
+    if (o.es && o.es !== repo.description) return '';
+    return o[lang] || '';
+  }
+
+  /* Descripción en el idioma activo: override manual si coincide, si no la de GitHub. */
+  function describe(repo) {
+    return manualText(repo) || repo.description || t('repo.nodesc');
+  }
+
+  /* Texto final de la descripción: traduce lo que no tenga override manual vigente. */
+  function translateDescription(repo) {
+    if (lang !== 'en') return Promise.resolve(describe(repo));
+    var manual = manualText(repo);
+    if (manual) return Promise.resolve(manual);
+    if (!repo.description) return Promise.resolve(t('repo.nodesc'));
+    return translate(repo.description);
   }
 
   /* ---------- UI común ---------- */
@@ -307,16 +447,23 @@
   }
 
   /* Pone la bio en `el`. Si falla o está vacía, muestra `hero.title` como respaldo.
-     Traducción: _profile en repo-i18n.json solo se usa si la bio actual coincide con su texto `es`. */
+     Traducción manual: _profile se usa solo si la bio actual coincide con su texto `es`.
+     Sin coincidencia manual, en inglés se traduce la bio automáticamente. */
   function mountBio(el) {
     var bio = '';
     var done = false;
+    var seq = 0;
     function paint() {
       if (!done) return;
+      var current = ++seq;
       if (!bio) { el.textContent = t('hero.title'); return; }
       var o = overrides._profile;
-      var text = (o && o.es === bio && o[lang]) ? o[lang] : bio;
-      if (el.textContent !== text) el.textContent = text;
+      if (o && o.es === bio && o[lang]) { el.textContent = o[lang]; return; }
+      if (el.textContent !== bio) el.textContent = bio;
+      if (lang !== 'en') return;
+      translate(bio).then(function (text) {
+        if (current === seq && lang === 'en' && bio) el.textContent = text;
+      });
     }
     Promise.all([loadProfile().catch(function () { return ''; }), loadI18nOverrides()]).then(function (res) {
       bio = res[0];
@@ -336,7 +483,8 @@
   }
 
   window.CP = {
-    t: t, describe: describe, fmtDate: fmtDate, init: init, mountProjects: mountProjects,
+    t: t, describe: describe, translate: translate, translateDescription: translateDescription,
+    fmtDate: fmtDate, init: init, mountProjects: mountProjects,
     onLang: function (fn) { listeners.push(fn); },
     lang: function () { return lang; },
     applyStatic: applyStatic, mountBio: mountBio,
