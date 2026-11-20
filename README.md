@@ -1,3 +1,5 @@
-Hola, Soy tomas, y esta es una pagina web en la que se encuentra todas mis redes sociales.
-https://criperto.github.io/Criperto/
+Esta es mi pagina portafolio en la que se muestran todos mis repositorios de Github.
+Enlace: https://criperto.github.io/
+
+
 
