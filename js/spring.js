@@ -85,7 +85,7 @@
   }
 
   /* Entrada con resorte del texto que acaba de cambiar de idioma. */
-  var TEXT_SEL = '[data-i18n], .repo-desc, #bio, .meta dd, .gal-pause, .gal-empty';
+  var TEXT_SEL = '[data-i18n], .repo-desc, #bio, .meta dd, .gal-empty';
 
   function textIn(root) {
     if (reduced()) return;

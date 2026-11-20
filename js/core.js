@@ -33,9 +33,15 @@
       'repo.license': 'Licencia',
       'repo.noimg': 'Este repo no tiene capturas en su README.',
       'repo.shot': 'Captura {n} de {total}',
+      'repo.zoom': 'Ampliar captura',
       'repo.pause': 'Pausar capturas',
       'repo.play': 'Reanudar capturas',
       'repo.nodesc': 'Sin descripción.',
+      'lb.label': 'Visor de imagen ampliada',
+      'lb.close': 'Cerrar visor',
+      'lb.zoomIn': 'Acercar',
+      'lb.zoomOut': 'Alejar',
+      'lb.reset': 'Restablecer zoom',
       'links.title': 'Donde más me encontrás'
     },
     en: {
@@ -60,9 +66,15 @@
       'repo.license': 'License',
       'repo.noimg': 'This repo has no screenshots in its README.',
       'repo.shot': 'Screenshot {n} of {total}',
+      'repo.zoom': 'Expand screenshot',
       'repo.pause': 'Pause screenshots',
       'repo.play': 'Resume screenshots',
       'repo.nodesc': 'No description.',
+      'lb.label': 'Expanded image viewer',
+      'lb.close': 'Close viewer',
+      'lb.zoomIn': 'Zoom in',
+      'lb.zoomOut': 'Zoom out',
+      'lb.reset': 'Reset zoom',
       'links.title': 'Where else to find me'
     }
   };
