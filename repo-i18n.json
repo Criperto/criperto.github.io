@@ -1,0 +1,14 @@
+{
+  "_profile": {
+    "es": "Soy alguien que quiere aprender a programar, pero llego la IA y me volvi vibecoder(haciendo cosas para mi)",
+    "en": "I'm someone who wanted to learn to program, but then AI arrived and I became a vibecoder (making things for myself)."
+  },
+  "notes": {
+    "es": "App de notas hecha en Qt para mi setup de Quickshell. Usa Markdown y la vibecodeé.",
+    "en": "A Qt note-taking app for my Quickshell setup. It works on Markdown and I vibecoded it."
+  },
+  "standby": {
+    "es": "Una app para darle uso a un teléfono viejo pero funcional: lo convierte en un reloj digital que controla las luces de mi casa.",
+    "en": "An app that gives an old but working phone a second life as a digital clock that controls the lights in my house."
+  }
+}
