@@ -15,7 +15,7 @@
 
   var STRINGS = {
     es: {
-      'meta.title': 'Criperto: apps hechas por Tomás',
+      'meta.title': 'Criperto',
       'meta.desc': 'Portafolio de Criperto. La lista de proyectos sale en vivo de mi GitHub.',
       'skip': 'Saltar al contenido',
       'nav.projects': 'Proyectos',
@@ -48,7 +48,7 @@
       'links.title': 'Donde más me encontrás'
     },
     en: {
-      'meta.title': 'Criperto: apps built by Tomás',
+      'meta.title': 'Criperto',
       'meta.desc': 'Criperto portfolio. The project list is read live from my GitHub.',
       'skip': 'Skip to content',
       'nav.projects': 'Projects',
